@@ -36,19 +36,37 @@
 #endif
 #include "win.h"
 
+#define WIN_MAX_MESSAGES_PER_WAKEUP 128
+
 /* See Porting Layer Definition - p. 7 */
 void
 winWakeupHandler(ScreenPtr pScreen, int iResult)
 {
     MSG msg;
+    int i;
 
-    /* Process one message from our queue */
-    if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+    /*
+     * Process the queued messages in order, at most
+     * WIN_MAX_MESSAGES_PER_WAKEUP per call.
+     *
+     * Without /dev/windows the server cannot sleep on the message queue, so
+     * calls are at least one Windows timer tick apart, and handling a single
+     * message per call makes bursts of input arrive slowly.  The bound keeps
+     * a flood of key messages from overflowing the mi event queue.
+     *
+     * WM_PAINT and WM_TIMER are only returned when nothing else is queued,
+     * and WM_PAINT keeps being returned while a window's update region stays
+     * invalid, so stop after one of them rather than spin.
+     */
+    for (i = 0; i < WIN_MAX_MESSAGES_PER_WAKEUP
+         && PeekMessage(&msg, NULL, 0, 0, PM_REMOVE); ++i) {
         if ((g_hDlgDepthChange == 0
              || !IsDialogMessage(g_hDlgDepthChange, &msg))
             && (g_hDlgExit == 0 || !IsDialogMessage(g_hDlgExit, &msg))
             && (g_hDlgAbout == 0 || !IsDialogMessage(g_hDlgAbout, &msg))) {
             DispatchMessage(&msg);
         }
+        if (msg.message == WM_PAINT || msg.message == WM_TIMER)
+            break;
     }
 }
