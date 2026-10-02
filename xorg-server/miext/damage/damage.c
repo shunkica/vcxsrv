@@ -1341,7 +1341,7 @@ damageText(DrawablePtr pDrawable,
     free(charinfo);
 }
 
-Bool g_iActualCodePage=TRUE;
+Bool g_iActualCodePage=FALSE;
 
 // convert Slovak to iso8859-2
 void convert_1250_8859_2(char* text, int len)
